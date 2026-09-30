@@ -30,7 +30,8 @@
         reg = <0x74>;
         status = "okay";
 
-        rdy-gpios = <&pro_micro 9 GPIO_ACTIVE_HIGH>;
+        /* pull-down: RDY nunca fica a flutuar enquanto o IQS550 arranca */
+        rdy-gpios = <&pro_micro 9 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;
         /*
          * NRST é ativo em LOW, mas mantém-se GPIO_ACTIVE_HIGH de propósito:
          * o driver faz set(0) -> LOW = reset e depois set(1) -> HIGH = a

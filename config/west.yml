@@ -4,14 +4,13 @@ manifest:
   remotes:
     - name: zmkfirmware
       url-base: https://github.com/zmkfirmware
-    - name: essenceotd
-      url-base: https://github.com/essenceotd
   projects:
     - name: zmk
       remote: zmkfirmware
       import: app/west.yml
-    # Driver para trackpads Azoteq IQS5xx (TPS43 / TPS65)
-    - name: zmk_driver_azoteq
-      remote: essenceotd
   self:
     path: config
+
+# O driver do trackpad Azoteq (IQS5xx / TPS65) está nesta própria repo
+# (pastas drivers/, dts/ e zephyr/module.yml), com uma correção para o RDY.
+# Original: https://github.com/essenceotd/zmk_driver_azoteq

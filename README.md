@@ -1,7 +1,7 @@
 # zmk-config — Corne v3 (6 colunas) + trackpad Azoteq TPS65
 
 Firmware [ZMK](https://zmk.dev) para um Corne v3 split de 6 colunas com um trackpad
-**Azoteq TPS65** (controlador IQS550) no lado direito.
+**Azoteq TPS65** (controlador IQS550).
 
 | Item        | Valor                                                                 |
 | ----------- | --------------------------------------------------------------------- |
@@ -9,7 +9,7 @@ Firmware [ZMK](https://zmk.dev) para um Corne v3 split de 6 colunas com um track
 | Central     | Metade **esquerda** (liga ao computador) — **com o trackpad (fase inicial)** |
 | Periférico  | Metade **direita**                                                    |
 | Ecrã        | OLED 128x32 (I2C 0x3C), nas duas metades                              |
-| Driver      | [`essenceotd/zmk_driver_azoteq`](https://github.com/essenceotd/zmk_driver_azoteq) (IQS5xx — TPS43/TPS65) |
+| Driver      | cópia de [`essenceotd/zmk_driver_azoteq`](https://github.com/essenceotd/zmk_driver_azoteq) nesta repo (`drivers/`, `dts/`, `zephyr/`), com correção do RDY |
 | ZMK         | `main` (Zephyr 4.1)                                                   |
 
 ## Ligações do trackpad (Pro Micro da esquerda)
@@ -50,7 +50,16 @@ config/
   corne_right.conf         # periférico: sem trackpad
   corne_left.overlay       # trackpad no I2C + pinos RDY/NRST + listener
   corne.keymap             # layers Base / Lower / Raise / Mouse
+drivers/ dts/ zephyr/      # driver IQS5xx (TPS43/TPS65) com correção do RDY
 ```
+
+### Correção no driver
+
+O RDY do IQS550 é lido por interrupção de flanco. Se o chip levantar o RDY antes de
+a interrupção estar armada (arranque ou saída de suspensão), o flanco perde-se e o
+trackpad fica parado até haver um pulso no pino. A cópia do driver nesta repo verifica
+o nível do RDY no fim do arranque/resume e inicializa o work/semáforo antes de armar a
+interrupção. O RDY tem ainda pull-down no `corne_left.overlay`.
 
 ## Compilar e flashar
 
