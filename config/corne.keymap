@@ -1,5 +1,5 @@
 /*
- * Corne v3 (6 colunas) + trackpad Azoteq TPS65 (lado direito)
+ * Corne v3 (6 colunas) + trackpad Azoteq TPS65
  *
  * SPDX-License-Identifier: MIT
  */
@@ -15,17 +15,7 @@
 #define RAISE 2
 #define MOUSE 3
 
-/*
- * Sempre que o trackpad é usado, a layer MOUSE fica ativa durante 700 ms
- * (ou até carregares numa tecla que não seja da layer). Assim tens os
- * botões do rato debaixo da mão esquerda sem mudar de layer manualmente.
- *
- * Se o cursor estiver rápido/lento demais, acrescenta um scaler, ex.:
- *   input-processors = <&zip_xy_scaler 3 2>, <&zip_temp_layer MOUSE 700>;
- */
-&tps65_listener {
-    input-processors = <&zip_temp_layer MOUSE 700>;
-};
+/* A ligação trackpad -> layer MOUSE está em corne_left.overlay (&tps65_listener). */
 
 / {
     keymap {
@@ -78,7 +68,7 @@
 
         mouse_layer {
             display-name = "Mouse";
-// Ativada automaticamente quando se usa o trackpad (ver &tps65_listener acima)
+// Ativada automaticamente quando se usa o trackpad (ver corne_left.overlay)
 // -----------------------------------------------------------------------------------------
 // |      |     |     |     |     |     |   |     |     |     |     |     |      |
 // |      |     | RCLK| MCLK| LCLK|     |   |     |     |     |     |     |      |
