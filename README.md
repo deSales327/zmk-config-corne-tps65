@@ -6,13 +6,13 @@ Firmware [ZMK](https://zmk.dev) para um Corne v3 split de 6 colunas com um track
 | Item        | Valor                                                                 |
 | ----------- | --------------------------------------------------------------------- |
 | MCU         | Pro Micro nRF52840 "V1940" (clone nice!nano v2) → board `nice_nano//zmk` |
-| Central     | Metade **esquerda** (liga ao computador) — **com o trackpad (fase inicial)** |
-| Periférico  | Metade **direita**                                                    |
+| Central     | Metade **esquerda** (liga ao computador)                              |
+| Periférico  | Metade **direita** com o trackpad (enviado à central via `zmk,input-split`) |
 | Ecrã        | OLED 128x32 (I2C 0x3C), nas duas metades                              |
 | Driver      | cópia de [`essenceotd/zmk_driver_azoteq`](https://github.com/essenceotd/zmk_driver_azoteq) nesta repo (`drivers/`, `dts/`, `zephyr/`), com correção do RDY |
 | ZMK         | `main` (Zephyr 4.1)                                                   |
 
-## Ligações do trackpad (Pro Micro da esquerda)
+## Ligações do trackpad (Pro Micro da direita)
 
 | TPS65 | Pro Micro | nRF52840 | Notas                               |
 | ----- | --------- | -------- | ----------------------------------- |
@@ -46,9 +46,11 @@ build.yaml                 # alvos: corne_left, corne_right, settings_reset
 config/
   west.yml                 # ZMK + módulo do driver Azoteq
   corne.conf               # comum: OLED, pointing
-  corne_left.conf          # central: driver do trackpad, scroll suave
-  corne_right.conf         # periférico: sem trackpad
-  corne_left.overlay       # trackpad no I2C + pinos RDY/NRST + listener
+  corne_left.conf          # central: scroll suave, bateria do periférico
+  corne_right.conf         # periférico: driver do trackpad
+  tps65_split.dtsi         # nó input-split (partilhado)
+  corne_left.overlay       # listener do trackpad (+ layer Mouse automática)
+  corne_right.overlay      # trackpad no I2C + pinos RDY/NRST
   corne.keymap             # layers Base / Lower / Raise / Mouse
 drivers/ dts/ zephyr/      # driver IQS5xx (TPS43/TPS65) com correção do RDY
 ```
@@ -59,7 +61,7 @@ O RDY do IQS550 é lido por interrupção de flanco. Se o chip levantar o RDY an
 a interrupção estar armada (arranque ou saída de suspensão), o flanco perde-se e o
 trackpad fica parado até haver um pulso no pino. A cópia do driver nesta repo verifica
 o nível do RDY no fim do arranque/resume e inicializa o work/semáforo antes de armar a
-interrupção. O RDY tem ainda pull-down no `corne_left.overlay`.
+interrupção. O RDY tem ainda pull-down no `corne_right.overlay`.
 
 ## Compilar e flashar
 
@@ -70,14 +72,13 @@ interrupção. O RDY tem ainda pull-down no `corne_left.overlay`.
 
 ## Afinações comuns
 
-- **Eixos trocados / invertidos** – em `config/corne_left.overlay` descomenta
+- **Eixos trocados / invertidos** – em `config/corne_right.overlay` descomenta
   `switch-xy`, `invert-x`, `invert-y` ou `invert-scroll-y` conforme a orientação do TPS65 no case.
-- **Velocidade do cursor** – `sensitivity` no overlay, ou um `&zip_xy_scaler` no `&tps65_listener`
-  em `config/corne_left.overlay`.
-- **Diagnóstico** – grava o `corne_left_usb_logging` e abre a porta COM do teclado
+- **Velocidade do cursor** – `sensitivity` em `corne_right.overlay`, ou um `&zip_xy_scaler` no
+  `&tps65_listener` em `config/corne_left.overlay`.
+- **Diagnóstico** – grava o `corne_right_usb_logging` na direita e abre a porta COM do teclado
   (115200 baud, ex. PuTTY) para ver as mensagens do driver `tps43`.
-- **Passar o trackpad para a direita mais tarde** – ver no histórico do git o commit "Swap RDY (D9) and NRST (D8)"
-  (versão com `zmk,input-split`).
+- **Trackpad na esquerda** – ver no histórico do git o commit "Move TPS65 trackpad to left (central) half".
 - **Mais gestos** – o driver suporta ainda `swipes`, `zoom` e `three-finger-tap`
   (ver o [README do driver](https://github.com/essenceotd/zmk_driver_azoteq)).
 - **RGB underglow** – descomenta as linhas em `config/corne.conf`.

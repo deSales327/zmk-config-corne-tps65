@@ -1,71 +1,15 @@
 /*
- * Esquerda (central): trackpad Azoteq TPS65 (controlador IQS550)
- *
- * Fase inicial: o trackpad está ligado à metade ESQUERDA, que é a central,
- * por isso não é preciso input-split.
- *
- * Ligações ao Pro Micro nRF52840 da esquerda (compatível nice!nano v2):
- *
- *   TPS65      Pro Micro      nRF52840
- *   ---------  -------------  --------
- *   VDD        VCC (3.3V)     -
- *   GND        GND            -
- *   SDA        D2             P0.17   (mesmo barramento do OLED)
- *   SCL        D3             P0.20   (mesmo barramento do OLED)
- *   RDY        D9             P1.06
- *   NRST       D8             P1.04   (reset ativo em LOW)
- *
- * Endereços I2C: OLED = 0x3C, TPS65 = 0x74 (sem conflito).
+ * Central (esquerda): recebe o trackpad da direita via zmk,input-split
+ * e envia-o ao computador.
  */
 
-#include <dt-bindings/gpio/gpio.h>
 #include <input/processors.dtsi>
-
-&pro_micro_i2c {
-    status = "okay";
-    clock-frequency = <I2C_BITRATE_FAST>;
-
-    tps65: trackpad@74 {
-        compatible = "azoteq,tps43";   /* o mesmo driver serve TPS43 e TPS65 */
-        reg = <0x74>;
-        status = "okay";
-
-        /* pull-down: RDY nunca fica a flutuar enquanto o IQS550 arranca */
-        rdy-gpios = <&pro_micro 9 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;
-        /*
-         * NRST é ativo em LOW, mas mantém-se GPIO_ACTIVE_HIGH de propósito:
-         * o driver faz set(0) -> LOW = reset e depois set(1) -> HIGH = a
-         * correr. Com GPIO_ACTIVE_LOW o chip ficaria preso em reset.
-         */
-        rst-gpios = <&pro_micro 8 GPIO_ACTIVE_HIGH>;
-
-        enable-power-management;
-
-        sensitivity = <100>;          /* 100 = normal */
-        scroll-sensitivity = <50>;
-        zoom-sensitivity = <50>;
-
-        /* Gestos */
-        single-tap;                   /* 1 dedo toque  -> clique esquerdo   */
-        two-finger-tap;               /* 2 dedos toque -> clique direito    */
-        press-and-hold;               /* tocar e manter -> arrastar         */
-        scroll;                       /* 2 dedos deslizar -> scroll         */
-
-        /*
-         * Orientação: depende de como montares o TPS65 no case.
-         * Descomenta o que for preciso se o cursor andar trocado.
-         */
-        // switch-xy;
-        // invert-x;
-        // invert-y;
-        // invert-scroll-y;
-    };
-};
+#include "tps65_split.dtsi"
 
 / {
     tps65_listener: tps65_listener {
         compatible = "zmk,input-listener";
-        device = <&tps65>;
+        device = <&tps65_split>;
         /*
          * Ao usar o trackpad, a layer 3 (Mouse) fica ativa durante 700 ms.
          * Velocidade: p.ex. <&zip_xy_scaler 3 2>, <&zip_temp_layer 3 700>;

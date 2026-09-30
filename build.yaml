@@ -1,5 +1,5 @@
 # Corne v3 (6 colunas) + nice!nano v2 compatível (Pro Micro nRF52840 "V1940")
-# Esquerda = central, com o trackpad Azoteq TPS65 (fase inicial)
+# Esquerda = central | Direita = periférico com trackpad Azoteq TPS65
 ---
 include:
   - board: nice_nano//zmk
@@ -8,8 +8,8 @@ include:
     shield: corne_right
   - board: nice_nano//zmk
     shield: settings_reset
-  # Esquerda com logs por USB (diagnóstico do trackpad)
+  # Direita com logs por USB (diagnóstico do trackpad)
   - board: nice_nano//zmk
-    shield: corne_left
+    shield: corne_right
     snippet: zmk-usb-logging
-    artifact-name: corne_left_usb_logging
+    artifact-name: corne_right_usb_logging
