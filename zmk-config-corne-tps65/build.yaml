@@ -1,0 +1,10 @@
+# Corne v3 (6 colunas) + nice!nano v2 compatível (Pro Micro nRF52840 "V1940")
+# Esquerda = central | Direita = periférico com trackpad Azoteq TPS65
+---
+include:
+  - board: nice_nano//zmk
+    shield: corne_left
+  - board: nice_nano//zmk
+    shield: corne_right
+  - board: nice_nano//zmk
+    shield: settings_reset

@@ -1,0 +1,7 @@
+/* Central (esquerda): ativa o listener que recebe o trackpad da direita */
+
+#include "tps65_split.dtsi"
+
+&tps65_listener {
+    status = "okay";
+};
