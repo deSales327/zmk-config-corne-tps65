@@ -215,6 +215,29 @@ static void tps43_dump_status(const struct device *dev) {
     LOG_INF("Charging state: 0x%02X", sys_info & TPS43_CHARGING_MODE_MASK); // for debugging charging mode
 }
 
+#if IS_ENABLED(CONFIG_INPUT_TPS43_RDY_POLL)
+/* corne-tps65: periodic RDY level check (debug + fallback for missed edges) */
+static struct k_work_delayable tps43_rdy_poll_work;
+static const struct device *tps43_rdy_poll_dev;
+
+static void tps43_rdy_poll_handler(struct k_work *work) {
+    static int last_level = -1;
+    const struct device *dev = tps43_rdy_poll_dev;
+    const struct tps43_config *config = dev->config;
+    struct tps43_drv_data *drv_data = dev->data;
+
+    int level = gpio_pin_get_dt(&config->rdy_gpio);
+    if (level != last_level) {
+        LOG_INF("RDY poll: level %d -> %d", last_level, level);
+        last_level = level;
+    }
+    if (level > 0 && !drv_data->suspended) {
+        k_work_submit(&drv_data->work);
+    }
+    k_work_schedule(&tps43_rdy_poll_work, K_MSEC(CONFIG_INPUT_TPS43_RDY_POLL_MS));
+}
+#endif
+
 /**
  * @brief Process pending data if RDY is already asserted.
  *
@@ -1469,6 +1492,15 @@ static int tps43_init(const struct device *dev) {
 
     // RDY may already be high (window opened before the IRQ was armed)
     tps43_kick_if_rdy(dev);
+
+#if IS_ENABLED(CONFIG_INPUT_TPS43_RDY_POLL)
+    if (config->rdy_gpio.port != NULL) {
+        tps43_rdy_poll_dev = dev;
+        k_work_init_delayable(&tps43_rdy_poll_work, tps43_rdy_poll_handler);
+        k_work_schedule(&tps43_rdy_poll_work, K_MSEC(CONFIG_INPUT_TPS43_RDY_POLL_MS));
+        LOG_INF("RDY polling enabled (%d ms)", CONFIG_INPUT_TPS43_RDY_POLL_MS);
+    }
+#endif
 
     LOG_INF("TPS43 driver successfully initialized");
     return 0;

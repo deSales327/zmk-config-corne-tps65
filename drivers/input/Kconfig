@@ -15,4 +15,17 @@ config INPUT_TPS43_INIT_PRIORITY
     help
       Device driver initialization priority.
 
+config INPUT_TPS43_RDY_POLL
+    bool "Poll the RDY pin as a fallback / debug aid"
+    help
+      Every INPUT_TPS43_RDY_POLL_MS, read the RDY pin level. Logs every level
+      change (INF) and schedules a read if RDY is high, so a missed edge can
+      never stall the trackpad. Useful to check whether the MCU actually sees
+      the RDY signal.
+
+config INPUT_TPS43_RDY_POLL_MS
+    int "RDY poll period (ms)"
+    default 100
+    depends on INPUT_TPS43_RDY_POLL
+
 endif # ZMK_SENSOR_TPS43
