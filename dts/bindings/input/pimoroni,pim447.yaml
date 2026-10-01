@@ -1,0 +1,36 @@
+description: Pimoroni Trackball Breakout (PIM447) — I2C, address 0x0A (0x0B alt.)
+
+compatible: "pimoroni,pim447"
+
+include: i2c-device.yaml
+
+properties:
+  int-gpios:
+    type: phandle-array
+    description: INT pin (active low). Without it the driver polls.
+  poll-interval-ms:
+    type: int
+    default: 15
+    description: Poll period when no INT pin is used (or INT setup fails).
+  cursor-multiplier:
+    type: int
+    default: 3
+    description: Base cursor speed multiplier.
+  acceleration:
+    type: int
+    default: 1
+    description: Acceleration factor (0 = linear).
+  scroll-divisor:
+    type: int
+    default: 1
+    description: Ball counts per scroll step (higher = slower scroll).
+  click-toggles-scroll:
+    type: boolean
+    description: Ball click toggles cursor/scroll mode instead of sending a mouse button.
+  led-feedback:
+    type: boolean
+    description: Flash the ball LED on mode change (blue = cursor, green = scroll).
+  led-brightness:
+    type: int
+    default: 64
+    description: LED brightness for feedback flashes (0-255).

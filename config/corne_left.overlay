@@ -1,10 +1,45 @@
 /*
- * Central (esquerda): recebe o trackpad da direita via zmk,input-split
- * e envia-o ao computador.
+ * Central (esquerda):
+ *  - recebe o trackpad da direita via zmk,input-split
+ *  - trackball Pimoroni (PIM447) no polegar esquerdo
+ *
+ * Ligações do trackball ao Pro Micro da esquerda:
+ *
+ *   PIM447     Pro Micro      nRF52840
+ *   ---------  -------------  --------
+ *   3-5V       VCC (3.3V)     -
+ *   GND        GND            -
+ *   SDA        D2             P0.17   (mesmo barramento do OLED)
+ *   SCL        D3             P0.20   (mesmo barramento do OLED)
+ *   INT        D9             P1.06   (ativo em LOW)
+ *
+ * Endereços I2C: OLED = 0x3C, trackball = 0x0A.
  */
 
 #include <input/processors.dtsi>
+#include <dt-bindings/zmk/input_transform.h>
+#include <dt-bindings/gpio/gpio.h>
 #include "corne_common.dtsi"
+
+&pro_micro_i2c {
+    status = "okay";
+    clock-frequency = <I2C_BITRATE_FAST>;
+
+    trackball: trackball@a {
+        compatible = "pimoroni,pim447";
+        reg = <0x0a>;
+        int-gpios = <&pro_micro 9 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+
+        /* clique da bola: alterna cursor <-> scroll (LED: azul = cursor, verde = scroll) */
+        click-toggles-scroll;
+        led-feedback;
+        led-brightness = <64>;
+
+        cursor-multiplier = <3>;   /* velocidade base do cursor */
+        acceleration = <1>;        /* 0 = linear */
+        scroll-divisor = <2>;      /* mais alto = scroll mais lento */
+    };
+};
 
 / {
     tps65_listener: tps65_listener {
@@ -13,6 +48,17 @@
         /*
          * Ao usar o trackpad, a layer 3 (Mouse) fica ativa durante 700 ms.
          * Velocidade: p.ex. <&zip_xy_scaler 3 2>, <&zip_temp_layer 3 700>;
+         */
+        input-processors = <&zip_temp_layer 3 700>;
+    };
+
+    trackball_listener: trackball_listener {
+        compatible = "zmk,input-listener";
+        device = <&trackball>;
+        /*
+         * Orientação: depende de como montares o trackball. Exemplos:
+         *   <&zip_xy_transform (INPUT_TRANSFORM_X_INVERT | INPUT_TRANSFORM_Y_INVERT)>,
+         *   <&zip_xy_transform INPUT_TRANSFORM_XY_SWAP>,
          */
         input-processors = <&zip_temp_layer 3 700>;
     };

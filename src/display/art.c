@@ -331,6 +331,20 @@ const lv_image_dsc_t sym_tap = {
     .data = sym_tap_map,
 };
 
+static const LV_ATTRIBUTE_LARGE_CONST uint8_t sym_ptr_map[] = {
+    CTPS_PALETTE,
+    0x80, 0xc0, 0xe0, 0xf0, 0xf8, 0xf8, 0x90, 0x08,
+};
+const lv_image_dsc_t sym_ptr = {
+    .header.magic = LV_IMAGE_HEADER_MAGIC,
+    .header.cf = LV_COLOR_FORMAT_I1,
+    .header.w = 8,
+    .header.h = 8,
+    .header.stride = 1,
+    .data_size = sizeof(sym_ptr_map),
+    .data = sym_ptr_map,
+};
+
 static const LV_ATTRIBUTE_LARGE_CONST uint8_t sym_zz_map[] = {
     CTPS_PALETTE,
     0xe0, 0x20, 0x40, 0xee, 0x04, 0x08, 0x0e, 0x00,

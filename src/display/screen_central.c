@@ -28,6 +28,9 @@
 #include <zmk/split/central.h>
 #endif
 
+#if IS_ENABLED(CONFIG_INPUT_PIM447)
+#include "../../drivers/input/pim447.h"
+#endif
 #include "art.h"
 #include "common.h"
 
@@ -35,7 +38,7 @@
 #define ICON_FRAME_TICKS 6 /* troca de frame do ícone a cada 600 ms */
 
 static lv_obj_t *icon, *layer_lbl, *conn_img, *prof_lbl, *link_img, *wpm_txt, *wpm_lbl;
-static lv_obj_t *bat_l, *bat_r, *bat_r_lbl;
+static lv_obj_t *bat_l, *bat_r, *bat_r_lbl, *ball_img;
 
 static struct {
     int layer;
@@ -130,6 +133,16 @@ static void update(lv_timer_t *t) {
         lv_image_set_src(link_img, link == 2 ? &sym_ok : (link == 1 ? &sym_off : &sym_open));
     }
 
+    /* ---- modo do trackball (cursor / scroll) ---- */
+#if IS_ENABLED(CONFIG_INPUT_PIM447)
+    static int last_ball = -1;
+    int ball = pim447_is_scroll_mode();
+    if (ball != last_ball) {
+        last_ball = ball;
+        lv_image_set_src(ball_img, ball ? &sym_scroll : &sym_ptr);
+    }
+#endif
+
     /* ---- WPM ---- */
 #if IS_ENABLED(CONFIG_ZMK_WPM)
     int wpm = zmk_wpm_get_state();
@@ -182,6 +195,9 @@ lv_obj_t *zmk_display_status_screen(void) {
     lv_label_set_text_static(bat_r_lbl, "R");
     bat_r = ctps_image(scr, &bat_0, 71, 25);
 
+#if IS_ENABLED(CONFIG_INPUT_PIM447)
+    ball_img = ctps_image(scr, &sym_ptr, 88, 24);
+#endif
     wpm_lbl = ctps_label(scr, &lv_font_unscii_8, 104, 16);
     wpm_txt = ctps_label(scr, &lv_font_unscii_8, 104, 24);
 #if IS_ENABLED(CONFIG_ZMK_WPM)

@@ -20,6 +20,7 @@ extern const lv_image_dsc_t sym_open;
 extern const lv_image_dsc_t sym_link;
 extern const lv_image_dsc_t sym_scroll;
 extern const lv_image_dsc_t sym_tap;
+extern const lv_image_dsc_t sym_ptr;
 extern const lv_image_dsc_t sym_zz;
 extern const lv_image_dsc_t bat_0;
 extern const lv_image_dsc_t bat_1;

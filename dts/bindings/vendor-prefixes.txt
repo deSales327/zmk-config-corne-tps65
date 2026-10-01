@@ -1,1 +1,2 @@
 azoteq	Azoteq (Pty) Ltd.
+pimoroni	Pimoroni Ltd.

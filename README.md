@@ -8,6 +8,7 @@ Firmware [ZMK](https://zmk.dev) para um Corne v3 split de 6 colunas com um track
 | MCU         | Pro Micro nRF52840 "V1940" (clone nice!nano v2) → board `nice_nano//zmk` |
 | Central     | Metade **esquerda** (liga ao computador)                              |
 | Periférico  | Metade **direita** com o trackpad (enviado à central via `zmk,input-split`) |
+| Trackball   | Pimoroni PIM447 na esquerda (polegar), I2C 0x0A, INT em D9 — driver próprio em `drivers/input/pim447.c` |
 | Ecrã        | OLED 128x32 (I2C 0x3C) com ecrãs personalizados (ver abaixo)          |
 | LEDs        | 27 por metade (6 underglow + 21 por tecla), dados em D1 (P0.06)       |
 | Keymap      | Editável ao vivo no [ZMK Studio](https://zmk.studio) (esquerda por USB) |
@@ -51,11 +52,11 @@ config/
   corne_left.conf          # central: scroll suave, bateria do periférico
   corne_right.conf         # periférico: driver do trackpad
   tps65_split.dtsi         # nó input-split (partilhado)
-  corne_left.overlay       # listener do trackpad (+ layer Mouse automática)
+  corne_left.overlay       # trackball PIM447 + listeners (+ layer Mouse automática)
   corne_right.overlay      # trackpad no I2C + pinos RDY/NRST
   corne_common.dtsi        # partilhado: input-split + 27 LEDs
   corne.keymap             # layers Base / Lower / Raise / Mouse
-drivers/ dts/ zephyr/      # driver IQS5xx (TPS43/TPS65) com correção do RDY
+drivers/ dts/ zephyr/      # drivers: IQS5xx (TPS65, com correção do RDY) e PIM447 (trackball)
 src/display/               # ecrãs OLED personalizados (LVGL)
 tools/                     # gerador de pixel-art e pré-visualizações
 ```
@@ -67,6 +68,25 @@ a interrupção estar armada (arranque ou saída de suspensão), o flanco perde-
 trackpad fica parado até haver um pulso no pino. A cópia do driver nesta repo verifica
 o nível do RDY no fim do arranque/resume e inicializa o work/semáforo antes de armar a
 interrupção. O RDY tem ainda pull-down no `corne_right.overlay`.
+
+## Trackball Pimoroni (esquerda)
+
+| PIM447 | Pro Micro (esq.) | nRF52840 | Notas                     |
+| ------ | ---------------- | -------- | ------------------------- |
+| 3-5V   | VCC              | –        | 3.3 V                     |
+| GND    | GND              | –        |                           |
+| SDA    | D2               | P0.17    | partilhado com o OLED     |
+| SCL    | D3               | P0.20    | partilhado com o OLED     |
+| INT    | D9               | P1.06    | ativo em LOW (pull-up)    |
+
+- **Clique da bola** alterna **cursor ⇄ scroll** (o LED pisca azul = cursor, verde = scroll;
+  o OLED da esquerda mostra o modo ao lado das baterias).
+- Afinações em `config/corne_left.overlay`: `cursor-multiplier`, `acceleration`,
+  `scroll-divisor` e, para a orientação, `zip_xy_transform` no `trackball_listener`.
+- Sem `click-toggles-scroll`, o clique passa a ser o botão esquerdo do rato.
+- O driver usa o INT (com verificação de nível, para não perder flancos), apaga o LED
+  e põe o PIM447 a dormir em deep sleep. Se o trackball não estiver ligado, o resto do
+  teclado funciona normalmente.
 
 ## Ecrãs OLED
 

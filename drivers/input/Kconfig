@@ -29,3 +29,17 @@ config INPUT_TPS43_RDY_POLL_MS
     depends on INPUT_TPS43_RDY_POLL
 
 endif # ZMK_SENSOR_TPS43
+
+config INPUT_PIM447
+    bool "Pimoroni PIM447 trackball"
+    default y
+    depends on DT_HAS_PIMORONI_PIM447_ENABLED
+    depends on INPUT
+    select I2C
+    help
+      Pimoroni Trackball Breakout (PIM447) over I2C.
+
+config INPUT_PIM447_INIT_PRIORITY
+    int "PIM447 init priority"
+    default 91
+    depends on INPUT_PIM447
