@@ -14,12 +14,12 @@ properties:
     description: Poll period when no INT pin is used (or INT setup fails).
   cursor-multiplier:
     type: int
-    default: 3
-    description: Base cursor speed multiplier.
+    default: 6
+    description: Base cursor speed (pixels per ball count when moving slowly).
   acceleration:
     type: int
-    default: 1
-    description: Acceleration factor (0 = linear).
+    default: 4
+    description: Speed-based acceleration (0 = linear, higher = faster when flicking).
   scroll-divisor:
     type: int
     default: 1

@@ -65,6 +65,8 @@ struct pim447_data {
     bool flashing;
     uint8_t rgb[3]; /* cor pedida pelo RGB do teclado (pim447_set_rgb) */
     int scroll_acc_x, scroll_acc_y;
+    int64_t last_move_ms;
+    int32_t rem_x, rem_y; /* restos (x1/16) para movimento suave */
 };
 
 static const struct device *pim447_first_dev;
@@ -120,13 +122,29 @@ static void flash_mode(const struct device *dev) {
     k_work_reschedule(&data->led_off_work, K_MSEC(400));
 }
 
-/* aceleração simples: d * mult * (2 + accel*|d|) / 2  */
-static int32_t accelerate(const struct pim447_config *cfg, int32_t d) {
-    if (d == 0) {
-        return 0;
-    }
-    int32_t a = abs(d);
-    return d * cfg->cursor_mult * (2 + cfg->accel * (a - 1)) / 2;
+/*
+ * Aceleração pela VELOCIDADE da bola (contagens por 10 ms):
+ *   ganho = multiplicador * (1 + aceleração * velocidade / 4)
+ * Rodar devagar = preciso; rodar depressa = atravessa o ecrã.
+ * Trabalha em 1/16 de pixel e guarda o resto, para não perder movimento.
+ */
+static void accelerate(const struct pim447_config *cfg, struct pim447_data *data, int32_t *dx,
+                       int32_t *dy) {
+    int64_t now = k_uptime_get();
+    int32_t dt = (int32_t)CLAMP(now - data->last_move_ms, 1, 100);
+    data->last_move_ms = now;
+
+    int32_t counts = abs(*dx) + abs(*dy);
+    int32_t speed16 = counts * 160 / dt; /* contagens por 10 ms, x16 */
+    int32_t gain16 = cfg->cursor_mult * (16 + cfg->accel * speed16 / 4);
+    gain16 = MIN(gain16, cfg->cursor_mult * 16 * 12); /* teto: 12x */
+
+    int32_t x16 = *dx * gain16 + data->rem_x;
+    int32_t y16 = *dy * gain16 + data->rem_y;
+    *dx = x16 / 16;
+    *dy = y16 / 16;
+    data->rem_x = x16 - *dx * 16;
+    data->rem_y = y16 - *dy * 16;
 }
 
 static void process(const struct device *dev) {
@@ -177,8 +195,11 @@ static void process(const struct device *dev) {
             input_report_rel(dev, INPUT_REL_WHEEL, -sy, true, K_FOREVER);
         }
     } else {
-        input_report_rel(dev, INPUT_REL_X, accelerate(cfg, dx), false, K_FOREVER);
-        input_report_rel(dev, INPUT_REL_Y, accelerate(cfg, dy), true, K_FOREVER);
+        accelerate(cfg, data, &dx, &dy);
+        if (dx != 0 || dy != 0) {
+            input_report_rel(dev, INPUT_REL_X, dx, false, K_FOREVER);
+            input_report_rel(dev, INPUT_REL_Y, dy, true, K_FOREVER);
+        }
     }
 }
 
@@ -200,6 +221,14 @@ static void poll_handler(struct k_work *work) {
     struct pim447_data *data = CONTAINER_OF(dw, struct pim447_data, poll_work);
     const struct pim447_config *cfg = data->dev->config;
 
+    if (cfg->int_gpio.port != NULL) {
+        /* modo INT: só um "vigia" — se o INT ficou ativo sem flanco, lê agora */
+        if (!data->sleeping && gpio_pin_get_dt(&cfg->int_gpio) > 0) {
+            k_work_submit(&data->work);
+        }
+        k_work_reschedule(&data->poll_work, K_MSEC(500));
+        return;
+    }
     if (!data->sleeping) {
         process(data->dev);
     }
@@ -325,6 +354,7 @@ static int pim447_init(const struct device *dev) {
         } else {
             /* lição do trackpad: se já está ativo, não haverá flanco */
             k_work_submit(&data->work);
+            k_work_reschedule(&data->poll_work, K_MSEC(500)); /* vigia do INT */
         }
     } else {
         k_work_reschedule(&data->poll_work, K_MSEC(cfg->poll_ms));
