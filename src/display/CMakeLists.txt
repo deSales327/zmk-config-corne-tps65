@@ -1,0 +1,8 @@
+if(CONFIG_CORNE_TPS65_SCREEN)
+  target_sources(app PRIVATE art.c)
+  if(CONFIG_ZMK_SPLIT_ROLE_CENTRAL OR NOT CONFIG_ZMK_SPLIT)
+    target_sources(app PRIVATE screen_central.c)
+  else()
+    target_sources(app PRIVATE screen_peripheral.c)
+  endif()
+endif()

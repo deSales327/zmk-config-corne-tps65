@@ -4,3 +4,4 @@ modules/
 /zephyr/*
 !/zephyr/module.yml
 /zmk/
+__pycache__/

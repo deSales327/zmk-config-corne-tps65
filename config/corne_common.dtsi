@@ -1,0 +1,11 @@
+/*
+ * Partilhado pelas duas metades (incluído em corne_left.overlay e
+ * corne_right.overlay — o ZMK só carrega UM .overlay por build).
+ */
+
+#include "tps65_split.dtsi"
+
+/* Corne v3: 27 LEDs WS2812/SK6812 por metade (6 underglow + 21 por tecla), dados em D1 (P0.06) */
+&led_strip {
+    chain-length = <27>;
+};

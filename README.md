@@ -8,7 +8,9 @@ Firmware [ZMK](https://zmk.dev) para um Corne v3 split de 6 colunas com um track
 | MCU         | Pro Micro nRF52840 "V1940" (clone nice!nano v2) → board `nice_nano//zmk` |
 | Central     | Metade **esquerda** (liga ao computador)                              |
 | Periférico  | Metade **direita** com o trackpad (enviado à central via `zmk,input-split`) |
-| Ecrã        | OLED 128x32 (I2C 0x3C), nas duas metades                              |
+| Ecrã        | OLED 128x32 (I2C 0x3C) com ecrãs personalizados (ver abaixo)          |
+| LEDs        | 27 por metade (6 underglow + 21 por tecla), dados em D1 (P0.06)       |
+| Keymap      | Editável ao vivo no [ZMK Studio](https://zmk.studio) (esquerda por USB) |
 | Driver      | cópia de [`essenceotd/zmk_driver_azoteq`](https://github.com/essenceotd/zmk_driver_azoteq) nesta repo (`drivers/`, `dts/`, `zephyr/`), com correção do RDY |
 | ZMK         | `main` (Zephyr 4.1)                                                   |
 
@@ -51,8 +53,11 @@ config/
   tps65_split.dtsi         # nó input-split (partilhado)
   corne_left.overlay       # listener do trackpad (+ layer Mouse automática)
   corne_right.overlay      # trackpad no I2C + pinos RDY/NRST
+  corne_common.dtsi        # partilhado: input-split + 27 LEDs
   corne.keymap             # layers Base / Lower / Raise / Mouse
 drivers/ dts/ zephyr/      # driver IQS5xx (TPS43/TPS65) com correção do RDY
+src/display/               # ecrãs OLED personalizados (LVGL)
+tools/                     # gerador de pixel-art e pré-visualizações
 ```
 
 ### Correção no driver
@@ -62,6 +67,35 @@ a interrupção estar armada (arranque ou saída de suspensão), o flanco perde-
 trackpad fica parado até haver um pulso no pino. A cópia do driver nesta repo verifica
 o nível do RDY no fim do arranque/resume e inicializa o work/semáforo antes de armar a
 interrupção. O RDY tem ainda pull-down no `corne_right.overlay`.
+
+## Ecrãs OLED
+
+Pixel-art original, gerada por `tools/gen_art.py` (→ `src/display/art.c`).
+`tools/mockup.py` gera uma pré-visualização aproximada em `tools/preview/`.
+
+**Esquerda** — ícone animado da layer ativa (teclado / 123 / #! / cursor), nome da
+layer, ligação (BT + perfil ou USB, ✓ ligado / ✗ desligado / ? livre), bateria das
+duas metades e palavras por minuto.
+
+**Direita** — o **Pixo**, uma mascote que reage: escreve quando carregas nas teclas da
+direita, aponta quando usas o trackpad, arregala os olhos no scroll, adormece ao fim de
+1 min e fica triste sem ligação à esquerda. Ao lado, um mini-mapa do trackpad (o ponto
+segue o dedo; a moldura pisca nos cliques), modo atual, ligação e bateria.
+
+## LEDs RGB
+
+Teclas na layer **Lower**, fila de baixo à direita: `RGB on/off`, `efeito`, `cor`,
+`saturação`, `brilho +`, `brilho −`. Os LEDs apagam-se quando o teclado fica inativo
+e quando não há USB (poupar bateria). Brilho máximo limitado a 50 %.
+
+> `CONFIG_ZMK_RGB_UNDERGLOW_EXT_POWER=n` é **obrigatório**: sem isso, desligar o RGB
+> cortava o VCC e o trackpad/OLED deixavam de funcionar.
+
+## ZMK Studio
+
+1. Liga a metade **esquerda** por USB e abre <https://zmk.studio> (Chrome/Edge).
+2. Para desbloquear: **Lower + tecla à direita do `;`** (`&studio_unlock`).
+3. As alterações ficam guardadas no teclado; `config/corne.keymap` é a base.
 
 ## Compilar e flashar
 

@@ -4,7 +4,7 @@
  */
 
 #include <input/processors.dtsi>
-#include "tps65_split.dtsi"
+#include "corne_common.dtsi"
 
 / {
     tps65_listener: tps65_listener {
