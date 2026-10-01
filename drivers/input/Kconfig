@@ -43,3 +43,13 @@ config INPUT_PIM447_INIT_PRIORITY
     int "PIM447 init priority"
     default 91
     depends on INPUT_PIM447
+
+config PIM447_LED_STRIP
+    bool "PIM447 LED as extra pixel of the underglow strip"
+    default y
+    depends on DT_HAS_PIMORONI_PIM447_LED_STRIP_ENABLED && INPUT_PIM447 && LED_STRIP
+
+config PIM447_LED_STRIP_INIT_PRIORITY
+    int "PIM447 LED strip init priority"
+    default 92
+    depends on PIM447_LED_STRIP

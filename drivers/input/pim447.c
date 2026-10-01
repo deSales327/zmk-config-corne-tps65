@@ -62,6 +62,8 @@ struct pim447_data {
     bool scroll_mode;
     bool pressed;
     bool sleeping;
+    bool flashing;
+    uint8_t rgb[3]; /* cor pedida pelo RGB do teclado (pim447_set_rgb) */
     int scroll_acc_x, scroll_acc_y;
 };
 
@@ -86,10 +88,20 @@ static void set_led(const struct device *dev, uint8_t r, uint8_t g, uint8_t b, u
     i2c_write_dt(&cfg->i2c, buf, sizeof(buf));
 }
 
+static void led_restore(const struct device *dev) {
+    struct pim447_data *data = dev->data;
+    if (data->sleeping) {
+        set_led(dev, 0, 0, 0, 0);
+    } else {
+        set_led(dev, data->rgb[0], data->rgb[1], data->rgb[2], 0);
+    }
+}
+
 static void led_off_handler(struct k_work *work) {
     struct k_work_delayable *dw = k_work_delayable_from_work(work);
     struct pim447_data *data = CONTAINER_OF(dw, struct pim447_data, led_off_work);
-    set_led(data->dev, 0, 0, 0, 0);
+    data->flashing = false;
+    led_restore(data->dev);
 }
 
 static void flash_mode(const struct device *dev) {
@@ -99,6 +111,7 @@ static void flash_mode(const struct device *dev) {
         return;
     }
     uint8_t v = cfg->led_brightness;
+    data->flashing = true;
     if (data->scroll_mode) {
         set_led(dev, 0, v, 0, 0);
     } else {
@@ -213,10 +226,25 @@ int pim447_set_sleep(const struct device *dev, bool sleep) {
     if (sleep) {
         set_led(dev, 0, 0, 0, 0);
     } else {
+        led_restore(dev);
         /* limpa contagens acumuladas durante o sono */
         k_work_submit(&data->work);
     }
     return ret;
+}
+
+int pim447_set_rgb(const struct device *dev, uint8_t r, uint8_t g, uint8_t b) {
+    struct pim447_data *data = dev->data;
+    if (data->rgb[0] == r && data->rgb[1] == g && data->rgb[2] == b) {
+        return 0;
+    }
+    data->rgb[0] = r;
+    data->rgb[1] = g;
+    data->rgb[2] = b;
+    if (!data->sleeping && !data->flashing) {
+        set_led(dev, r, g, b, 0);
+    }
+    return 0;
 }
 
 bool pim447_is_scroll_mode(void) {

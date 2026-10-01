@@ -81,6 +81,9 @@ interrupção. O RDY tem ainda pull-down no `corne_right.overlay`.
 
 - **Clique da bola** alterna **cursor ⇄ scroll** (o LED pisca azul = cursor, verde = scroll;
   o OLED da esquerda mostra o modo ao lado das baterias).
+- **LED da bola = parte do RGB do teclado**: é o 28.º LED da metade esquerda
+  (`ball_and_strip` em `corne_left.overlay`), por isso segue efeitos, cor, brilho, on/off
+  e o auto-off das teclas RGB da layer Lower.
 - Afinações em `config/corne_left.overlay`: `cursor-multiplier`, `acceleration`,
   `scroll-divisor` e, para a orientação, `zip_xy_transform` no `trackball_listener`.
 - Sem `click-toggles-scroll`, o clique passa a ser o botão esquerdo do rato.

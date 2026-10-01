@@ -6,3 +6,4 @@
 int pim447_set_sleep(const struct device *dev, bool sleep);
 bool pim447_is_scroll_mode(void);
 void pim447_toggle_scroll_mode(void);
+int pim447_set_rgb(const struct device *dev, uint8_t r, uint8_t g, uint8_t b);

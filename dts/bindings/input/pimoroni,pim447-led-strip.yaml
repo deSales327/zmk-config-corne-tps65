@@ -1,0 +1,19 @@
+description: |
+  Virtual LED strip = an existing LED strip + the PIM447 trackball LED as the last pixel.
+  Point `zmk,underglow` at this node so the trackball follows the keyboard RGB.
+
+compatible: "pimoroni,pim447-led-strip"
+
+properties:
+  led-strip:
+    type: phandle
+    required: true
+    description: The real LED strip (e.g. &led_strip).
+  trackball:
+    type: phandle
+    required: true
+    description: The PIM447 trackball node.
+  chain-length:
+    type: int
+    required: true
+    description: Real strip length + 1.

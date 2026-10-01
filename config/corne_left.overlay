@@ -41,6 +41,24 @@
     };
 };
 
+/*
+ * O LED da bola faz parte do RGB do teclado: é o 28.º LED da metade esquerda
+ * (segue efeitos, cor, brilho, on/off e auto-off). O piscar azul/verde ao mudar
+ * de modo continua por cima e depois volta à cor do RGB.
+ */
+/ {
+    ball_and_strip: ball_and_strip {
+        compatible = "pimoroni,pim447-led-strip";
+        led-strip = <&led_strip>;
+        trackball = <&trackball>;
+        chain-length = <28>;
+    };
+
+    chosen {
+        zmk,underglow = &ball_and_strip;
+    };
+};
+
 / {
     tps65_listener: tps65_listener {
         compatible = "zmk,input-listener";
