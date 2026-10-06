@@ -69,6 +69,16 @@ trackpad fica parado até haver um pulso no pino. A cópia do driver nesta repo 
 o nível do RDY no fim do arranque/resume e inicializa o work/semáforo antes de armar a
 interrupção. O RDY tem ainda pull-down no `corne_right.overlay`.
 
+### Arranque robusto
+
+- **Ciclo de energia no arranque** (`src/power/boot_power_cycle.c`): em cada arranque o
+  VCC dos periféricos (trackpad, trackball, OLED, LEDs) é desligado 300 ms, com os pinos
+  I2C em baixo consumo para não os alimentar "por trás", e volta a ligar — um reset
+  limpo, igual a tirar e voltar a pôr a bateria.
+- **Novas tentativas**: se o trackpad ou o trackball não responderem no arranque, o
+  driver liberta o barramento I2C e tenta outra vez a cada 2 s (até ~30 s), em vez de
+  ficar parado até ao próximo reset.
+
 ## Trackball Pimoroni (esquerda)
 
 | PIM447 | Pro Micro (esq.) | nRF52840 | Notas                     |

@@ -15,6 +15,14 @@ config INPUT_TPS43_INIT_PRIORITY
     help
       Device driver initialization priority.
 
+config INPUT_TPS43_INIT_RETRIES
+    int "Init retries if the trackpad does not answer at boot"
+    default 15
+
+config INPUT_TPS43_INIT_RETRY_MS
+    int "Delay between init retries (ms)"
+    default 2000
+
 config INPUT_TPS43_RDY_POLL
     bool "Poll the RDY pin as a fallback / debug aid"
     help
