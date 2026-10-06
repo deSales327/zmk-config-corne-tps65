@@ -1410,7 +1410,7 @@ static void tps43_dump_registers(const struct device *dev) {
  * @param dev Pointer to trackpad device
  * @return 0 on success, negative error code on failure
  */
-static int tps43_hw_setup(const struct device *dev) {
+static int tps43_init(const struct device *dev) {
 
     struct tps43_drv_data *drv_data = dev->data;
     const struct tps43_config *config = dev->config;
@@ -1506,52 +1506,6 @@ static int tps43_hw_setup(const struct device *dev) {
     return 0;
 }
 
-
-/*
- * corne-tps65: arranque robusto. Se o trackpad não responder no arranque
- * (ainda a acordar, barramento I2C preso, mau contacto momentâneo...), em vez
- * de ficar morto até ao próximo reset, liberta o barramento e tenta outra vez.
- */
-static struct k_work_delayable tps43_retry_work;
-static const struct device *tps43_retry_dev;
-static int tps43_retry_count;
-
-static void tps43_retry_handler(struct k_work *work) {
-    const struct device *dev = tps43_retry_dev;
-    const struct tps43_config *config = dev->config;
-
-    tps43_retry_count++;
-    i2c_recover_bus(config->i2c_bus.bus);
-    if (tps43_hw_setup(dev) == 0) {
-        LOG_INF("Trackpad recovered after %d retries", tps43_retry_count);
-        return;
-    }
-    if (tps43_retry_count < CONFIG_INPUT_TPS43_INIT_RETRIES) {
-        k_work_reschedule(&tps43_retry_work, K_MSEC(CONFIG_INPUT_TPS43_INIT_RETRY_MS));
-    } else {
-        LOG_ERR("Trackpad not responding, giving up after %d retries", tps43_retry_count);
-    }
-}
-
-static int tps43_init(const struct device *dev) {
-    struct tps43_drv_data *drv_data = dev->data;
-
-    drv_data->dev = dev;
-    k_sem_init(&drv_data->lock, 1, 1);
-    k_work_init(&drv_data->work, tps43_work_handler);
-
-    int ret = tps43_hw_setup(dev);
-    if (ret != 0) {
-        LOG_WRN("Trackpad init failed (%d), will retry", ret);
-        tps43_retry_dev = dev;
-        tps43_retry_count = 0;
-        k_work_init_delayable(&tps43_retry_work, tps43_retry_handler);
-        k_work_schedule(&tps43_retry_work, K_MSEC(CONFIG_INPUT_TPS43_INIT_RETRY_MS));
-    }
-    /* o dispositivo fica "pronto" para o resto do ZMK mesmo enquanto tenta */
-    return 0;
-}
-
  
 #define TPS43_INIT(inst)                                                                             \
     static struct tps43_drv_data tps43_##inst##_drvdata = {                                          \
@@ -1638,9 +1592,6 @@ DT_INST_FOREACH_STATUS_OKAY(TPS43_INIT)
 int tps43_set_sleep(const struct device *dev, bool sleep) {
     if (dev == NULL) {
         return -EINVAL;
-    }
-    if (!((struct tps43_drv_data *)dev->data)->initialized) {
-        return 0; /* ainda não arrancou (ou a tentar outra vez) */
     }
     return tps43_set_suspend(dev, sleep);
 }

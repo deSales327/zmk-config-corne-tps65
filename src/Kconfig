@@ -15,18 +15,3 @@ config LV_Z_MEM_POOL_SIZE
     default 8192
 
 endif
-
-config CORNE_TPS65_BOOT_POWER_CYCLE
-    bool "Power-cycle VCC peripherals at boot (clean reset of trackpad/trackball/OLED)"
-    default y
-    depends on ZMK_EXT_POWER
-
-config CORNE_TPS65_BOOT_POWER_OFF_MS
-    int "VCC off time at boot (ms)"
-    default 300
-    depends on CORNE_TPS65_BOOT_POWER_CYCLE
-
-config CORNE_TPS65_BOOT_POWER_SETTLE_MS
-    int "Settle time after VCC on (ms)"
-    default 50
-    depends on CORNE_TPS65_BOOT_POWER_CYCLE

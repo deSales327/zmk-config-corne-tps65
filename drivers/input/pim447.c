@@ -66,10 +66,6 @@ struct pim447_data {
     uint8_t rgb[3]; /* cor pedida pelo RGB do teclado (pim447_set_rgb) */
     int scroll_acc_x, scroll_acc_y;
     int64_t last_move_ms;
-    bool cb_added;
-    bool ready;
-    int retries;
-    struct k_work_delayable retry_work;
     int32_t rem_x, rem_y; /* restos (x1/16) para movimento suave */
 };
 
@@ -249,9 +245,6 @@ static void int_cb(const struct device *port, struct gpio_callback *cb, uint32_t
 
 int pim447_set_sleep(const struct device *dev, bool sleep) {
     struct pim447_data *data = dev->data;
-    if (!data->ready) {
-        return 0;
-    }
     uint8_t ctrl = 0;
     int ret = reg_read(dev, REG_CTRL, &ctrl, 1);
     if (ret == 0) {
@@ -271,12 +264,6 @@ int pim447_set_sleep(const struct device *dev, bool sleep) {
 
 int pim447_set_rgb(const struct device *dev, uint8_t r, uint8_t g, uint8_t b) {
     struct pim447_data *data = dev->data;
-    if (!data->ready) {
-        data->rgb[0] = r;
-        data->rgb[1] = g;
-        data->rgb[2] = b;
-        return 0;
-    }
     if (data->rgb[0] == r && data->rgb[1] == g && data->rgb[2] == b) {
         return 0;
     }
@@ -308,10 +295,15 @@ void pim447_toggle_scroll_mode(void) {
 
 /* ------------------------------------------------------------------------- */
 
-static int pim447_hw_setup(const struct device *dev) {
+static int pim447_init(const struct device *dev) {
     const struct pim447_config *cfg = dev->config;
     struct pim447_data *data = dev->data;
     uint8_t id[2];
+
+    data->dev = dev;
+    k_work_init(&data->work, work_handler);
+    k_work_init_delayable(&data->poll_work, poll_handler);
+    k_work_init_delayable(&data->led_off_work, led_off_handler);
 
     if (!i2c_is_ready_dt(&cfg->i2c)) {
         LOG_ERR("I2C bus not ready");
@@ -349,10 +341,9 @@ static int pim447_hw_setup(const struct device *dev) {
         reg_write(dev, REG_INT, intreg | MSK_INT_OUT_EN);
 
         ret = gpio_pin_configure_dt(&cfg->int_gpio, GPIO_INPUT);
-        if (ret == 0 && !data->cb_added) {
+        if (ret == 0) {
             gpio_init_callback(&data->int_cb, int_cb, BIT(cfg->int_gpio.pin));
             ret = gpio_add_callback(cfg->int_gpio.port, &data->int_cb);
-            data->cb_added = (ret == 0);
         }
         if (ret == 0) {
             ret = gpio_pin_interrupt_configure_dt(&cfg->int_gpio, GPIO_INT_EDGE_TO_ACTIVE);
@@ -369,50 +360,8 @@ static int pim447_hw_setup(const struct device *dev) {
         k_work_reschedule(&data->poll_work, K_MSEC(cfg->poll_ms));
     }
 
-    data->ready = true;
-    led_restore(dev); /* aplica a cor do RGB que possa ter chegado entretanto */
     LOG_INF("PIM447 ready (%s, %s)", cfg->int_gpio.port ? "INT" : "polling",
             cfg->click_toggles_scroll ? "click toggles scroll" : "click = BTN_0");
-    return 0;
-}
-
-/*
- * Arranque robusto: se o trackball não responder no arranque, liberta o
- * barramento I2C e tenta outra vez a cada 2 s (até ~30 s), em vez de ficar morto.
- */
-static void retry_handler(struct k_work *work) {
-    struct k_work_delayable *dw = k_work_delayable_from_work(work);
-    struct pim447_data *data = CONTAINER_OF(dw, struct pim447_data, retry_work);
-    const struct device *dev = data->dev;
-    const struct pim447_config *cfg = dev->config;
-
-    data->retries++;
-    i2c_recover_bus(cfg->i2c.bus);
-    if (pim447_hw_setup(dev) == 0) {
-        LOG_INF("PIM447 recovered after %d retries", data->retries);
-        return;
-    }
-    if (data->retries < 15) {
-        k_work_reschedule(&data->retry_work, K_SECONDS(2));
-    } else {
-        LOG_ERR("PIM447 not responding, giving up");
-    }
-}
-
-static int pim447_init(const struct device *dev) {
-    struct pim447_data *data = dev->data;
-
-    data->dev = dev;
-    k_work_init(&data->work, work_handler);
-    k_work_init_delayable(&data->poll_work, poll_handler);
-    k_work_init_delayable(&data->led_off_work, led_off_handler);
-    k_work_init_delayable(&data->retry_work, retry_handler);
-
-    int ret = pim447_hw_setup(dev);
-    if (ret != 0) {
-        LOG_WRN("PIM447 init failed (%d), will retry", ret);
-        k_work_schedule(&data->retry_work, K_SECONDS(2));
-    }
     return 0;
 }
 
