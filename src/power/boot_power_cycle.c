@@ -7,10 +7,9 @@
  * presos num estado estranho até se tirar toda a energia (por isso ligar a
  * bateria "a frio" os desbloqueava).
  *
- * Aqui, logo no arranque e antes de os drivers do I2C/trackpad/trackball/OLED
- * correrem, desligamos o VCC, pomos os pinos I2C em modo de baixo consumo (sem
- * alimentar os chips por trás) e voltamos a ligar — um "power-on reset" limpo
- * em cada arranque.
+ * Aqui, logo no arranque e antes de o I2C, o trackpad, o trackball e o OLED
+ * serem inicializados, desligamos o VCC e voltamos a ligar — um "power-on
+ * reset" limpo em cada arranque.
  *
  * SPDX-License-Identifier: MIT
  */
@@ -19,13 +18,11 @@
 #include <zephyr/init.h>
 #include <zephyr/device.h>
 #include <zephyr/drivers/gpio.h>
-#include <zephyr/pm/device.h>
 #include <zephyr/logging/log.h>
 
 LOG_MODULE_REGISTER(ctps_power, CONFIG_ZMK_LOG_LEVEL);
 
 #define EXT_POWER_NODE DT_INST(0, zmk_ext_power_generic)
-#define I2C_NODE DT_NODELABEL(pro_micro_i2c)
 
 #if DT_NODE_EXISTS(EXT_POWER_NODE) && DT_NODE_HAS_PROP(EXT_POWER_NODE, control_gpios)
 
@@ -36,28 +33,19 @@ static int ctps_boot_power_cycle(void) {
         return 0;
     }
 
-#if DT_NODE_HAS_STATUS(I2C_NODE, okay) && IS_ENABLED(CONFIG_PM_DEVICE)
-    const struct device *i2c = DEVICE_DT_GET(I2C_NODE);
-    bool i2c_suspended = device_is_ready(i2c) &&
-                         pm_device_action_run(i2c, PM_DEVICE_ACTION_SUSPEND) == 0;
-#endif
-
+    /*
+     * Corre ANTES de o driver I2C configurar os pinos (prioridade 50): neste
+     * momento SDA/SCL ainda estão desligados (estado de reset), por isso não
+     * alimentam os chips "por trás" enquanto o VCC está em baixo.
+     */
     gpio_pin_configure_dt(&ctrl, GPIO_OUTPUT_INACTIVE); /* VCC desligado */
-    k_msleep(CONFIG_CORNE_TPS65_BOOT_POWER_OFF_MS);
+    k_busy_wait(CONFIG_CORNE_TPS65_BOOT_POWER_OFF_MS * 1000);
     gpio_pin_set_dt(&ctrl, 1); /* VCC ligado */
-
-#if DT_NODE_HAS_STATUS(I2C_NODE, okay) && IS_ENABLED(CONFIG_PM_DEVICE)
-    if (i2c_suspended) {
-        pm_device_action_run(i2c, PM_DEVICE_ACTION_RESUME);
-    }
-#endif
-
-    k_msleep(CONFIG_CORNE_TPS65_BOOT_POWER_SETTLE_MS);
-    LOG_INF("peripheral power cycled (%d ms off)", CONFIG_CORNE_TPS65_BOOT_POWER_OFF_MS);
+    k_busy_wait(CONFIG_CORNE_TPS65_BOOT_POWER_SETTLE_MS * 1000);
     return 0;
 }
 
-/* depois do ext-power do ZMK (81) e antes do OLED (85) e dos drivers de input (90+) */
-SYS_INIT(ctps_boot_power_cycle, POST_KERNEL, 82);
+/* depois do GPIO (40) e antes do I2C (50), do ext-power do ZMK (81) e do OLED (85) */
+SYS_INIT(ctps_boot_power_cycle, POST_KERNEL, 45);
 
 #endif
