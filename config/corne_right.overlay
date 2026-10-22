@@ -55,8 +55,8 @@
          */
         // switch-xy;
         // invert-x;
-        // invert-y;
-        // invert-scroll-y;
+        invert-y;                     /* cursor: cima <-> baixo */
+        invert-scroll-y;              /* compensa o invert-y: o scroll fica como estava */
     };
 };
 
