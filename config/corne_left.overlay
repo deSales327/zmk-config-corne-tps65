@@ -55,7 +55,7 @@
         led-feedback;
         led-brightness = <64>;
 
-        cursor-multiplier = <6>;   /* velocidade base (rodar devagar) */
+        cursor-multiplier = <3>;   /* velocidade base (rodar devagar) */
         acceleration = <4>;        /* quanto acelera ao rodar depressa (0 = linear) */
         scroll-divisor = <2>;      /* mais alto = scroll mais lento */
     };
