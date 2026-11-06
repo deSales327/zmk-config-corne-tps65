@@ -53,6 +53,7 @@ struct pim447_config {
     uint8_t scroll_div;
     bool click_toggles_scroll;
     bool led_feedback;
+    uint8_t noise_threshold; /* contagens mínimas para arrancar a partir de repouso */
     uint8_t led_brightness;
 };
 
@@ -70,6 +71,10 @@ struct pim447_data {
     int scroll_acc_x, scroll_acc_y;
     int64_t last_move_ms;
     int64_t last_activity_ms; /* último movimento/clique (para o polling adaptativo) */
+    int64_t last_count_ms;    /* última contagem aceite (filtro de ruído) */
+    int64_t pend_ms;          /* início da janela do filtro de ruído */
+    int32_t pend_x, pend_y;   /* contagens retidas pelo filtro de ruído */
+    int32_t speed16_avg;      /* velocidade suavizada (para a aceleração) */
     int32_t rem_x, rem_y; /* restos (x1/16) para movimento suave */
 };
 
@@ -140,7 +145,16 @@ static void accelerate(const struct pim447_config *cfg, struct pim447_data *data
 
     int32_t counts = abs(*dx) + abs(*dy);
     int32_t speed16 = counts * 160 / dt; /* contagens por 10 ms, x16 */
-    int32_t gain16 = cfg->cursor_mult * (16 + cfg->accel * speed16 / 4);
+    /*
+     * Média móvel da velocidade: uma leitura com 1 contagem e a seguinte com 3
+     * já não fazem o ganho saltar de um valor para outro (cursor aos solavancos).
+     */
+    if (dt >= 100) {
+        data->speed16_avg = speed16; /* a arrancar de repouso */
+    } else {
+        data->speed16_avg = (data->speed16_avg * 3 + speed16) / 4;
+    }
+    int32_t gain16 = cfg->cursor_mult * (16 + cfg->accel * data->speed16_avg / 4);
     gain16 = MIN(gain16, cfg->cursor_mult * 16 * 12); /* teto: 12x */
 
     int32_t x16 = *dx * gain16 + data->rem_x;
@@ -210,6 +224,28 @@ static bool process(const struct device *dev) {
     if (dx == 0 && dy == 0) {
         return activity;
     }
+
+    /*
+     * Filtro de ruído: com a bola parada, uma contagem solta (vibração,
+     * tocar na bola, mexer no teclado) não mexe o cursor. A partir de
+     * repouso só arranca com `noise_threshold` contagens em 80 ms.
+     */
+    int64_t now = k_uptime_get();
+    if (cfg->noise_threshold > 1 && now - data->last_count_ms > 150) {
+        if (now - data->pend_ms > 80) {
+            data->pend_x = data->pend_y = 0;
+            data->pend_ms = now;
+        }
+        data->pend_x += dx;
+        data->pend_y += dy;
+        if (abs(data->pend_x) + abs(data->pend_y) < cfg->noise_threshold) {
+            return true; /* continua a ler depressa para apanhar a próxima contagem */
+        }
+        dx = data->pend_x;
+        dy = data->pend_y;
+        data->pend_x = data->pend_y = 0;
+    }
+    data->last_count_ms = now;
     activity = true;
 
     if (data->scroll_mode) {
@@ -429,6 +465,7 @@ static int pim447_init(const struct device *dev) {
         .click_toggles_scroll = DT_INST_PROP(n, click_toggles_scroll),                             \
         .led_feedback = DT_INST_PROP(n, led_feedback),                                             \
         .led_brightness = DT_INST_PROP(n, led_brightness),                                         \
+        .noise_threshold = DT_INST_PROP(n, noise_threshold),                                       \
     };                                                                                             \
     DEVICE_DT_INST_DEFINE(n, pim447_init, NULL, &pim447_data_##n, &pim447_config_##n,              \
                           POST_KERNEL, CONFIG_INPUT_PIM447_INIT_PRIORITY, NULL);

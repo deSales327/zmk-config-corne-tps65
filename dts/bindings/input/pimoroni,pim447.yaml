@@ -21,6 +21,10 @@ properties:
     default: 0
     enum: [0, 90, 180, 270]
     description: Rotate the ball axes clockwise (degrees) to match how it is mounted. Applies to cursor and scroll.
+  noise-threshold:
+    type: int
+    default: 1
+    description: Ball counts needed (within 80 ms) to start moving from rest. 1 = off; 2-3 filter stray counts (jitter).
   cursor-multiplier:
     type: int
     default: 6

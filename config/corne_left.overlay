@@ -30,12 +30,19 @@
         reg = <0x0a>;
         /*
          * Sem pino INT: o INT no D9 não chega ao MCU de forma fiável, por isso
-         * o driver lê a bola sozinho (15 ms a mexer, 100 ms parada).
+         * o driver lê a bola sozinho (10 ms a mexer, 100 ms parada).
          * Para voltar ao modo INT (gasta menos bateria), descomenta:
          * int-gpios = <&pro_micro 9 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
          */
-        poll-interval-ms = <15>;
+        poll-interval-ms = <10>;      /* mais leituras = movimento mais suave */
         idle-poll-interval-ms = <100>;
+
+        /*
+         * Anti-jitter: com a bola parada, ignora contagens soltas. Só começa a
+         * mexer com 2 contagens seguidas. Ainda treme? sobe para 3.
+         * Fica "preso" a arrancar devagar? volta a 1 (desligado).
+         */
+        noise-threshold = <2>;
 
         /*
          * Orientação da bola (cursor e scroll): 0, 90, 180 ou 270 graus no
