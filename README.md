@@ -8,7 +8,7 @@ Firmware [ZMK](https://zmk.dev) para um Corne v3 split de 6 colunas com um track
 | MCU         | Pro Micro nRF52840 "V1940" (clone nice!nano v2) → board `nice_nano//zmk` |
 | Central     | Metade **esquerda** (liga ao computador)                              |
 | Periférico  | Metade **direita** com o trackpad (enviado à central via `zmk,input-split`) |
-| Trackball   | Pimoroni PIM447 na esquerda (polegar), I2C 0x0A, INT em D9 — driver próprio em `drivers/input/pim447.c` |
+| Trackball   | Pimoroni PIM447 na esquerda (polegar), I2C 0x0A, lido por polling — driver próprio em `drivers/input/pim447.c` |
 | Ecrã        | OLED 128x32 (I2C 0x3C) com ecrãs personalizados (ver abaixo)          |
 | LEDs        | 27 por metade (6 underglow + 21 por tecla), dados em D1 (P0.06)       |
 | Keymap      | Editável ao vivo no [ZMK Studio](https://zmk.studio) (esquerda por USB) |
@@ -77,7 +77,7 @@ interrupção. O RDY tem ainda pull-down no `corne_right.overlay`.
 | GND    | GND              | –        |                           |
 | SDA    | D2               | P0.17    | partilhado com o OLED     |
 | SCL    | D3               | P0.20    | partilhado com o OLED     |
-| INT    | D9               | P1.06    | ativo em LOW (pull-up)    |
+| INT    | (D9)             | P1.06    | opcional, não usado       |
 
 - **Clique da bola** alterna **cursor ⇄ scroll** (o LED pisca azul = cursor, verde = scroll;
   o OLED da esquerda mostra o modo ao lado das baterias).
@@ -87,8 +87,11 @@ interrupção. O RDY tem ainda pull-down no `corne_right.overlay`.
 - Afinações em `config/corne_left.overlay`: `cursor-multiplier`, `acceleration`,
   `scroll-divisor` e, para a orientação, `zip_xy_transform` no `trackball_listener`.
 - Sem `click-toggles-scroll`, o clique passa a ser o botão esquerdo do rato.
-- O driver usa o INT (com verificação de nível, para não perder flancos), apaga o LED
-  e põe o PIM447 a dormir em deep sleep. Se o trackball não estiver ligado, o resto do
+- O driver lê a bola por **polling**: a cada 15 ms enquanto mexe e a cada 100 ms parada
+  (`poll-interval-ms` / `idle-poll-interval-ms`). O INT no D9 não chegava ao MCU de forma
+  fiável; para voltar ao modo INT, descomenta `int-gpios` em `corne_left.overlay`.
+  No arranque descarta o movimento acumulado, apaga o LED em deep sleep e põe o PIM447
+  a dormir. Se o trackball não estiver ligado, o resto do
   teclado funciona normalmente.
 
 ## Ecrãs OLED

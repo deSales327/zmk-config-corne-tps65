@@ -12,6 +12,10 @@ properties:
     type: int
     default: 15
     description: Poll period when no INT pin is used (or INT setup fails).
+  idle-poll-interval-ms:
+    type: int
+    default: 100
+    description: Poll period while the ball is still (polling mode only; saves battery).
   cursor-multiplier:
     type: int
     default: 6

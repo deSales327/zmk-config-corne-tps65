@@ -11,7 +11,7 @@
  *   GND        GND            -
  *   SDA        D2             P0.17   (mesmo barramento do OLED)
  *   SCL        D3             P0.20   (mesmo barramento do OLED)
- *   INT        D9             P1.06   (ativo em LOW)
+ *   INT        D9             P1.06   (não usado: o driver lê por polling)
  *
  * Endereços I2C: OLED = 0x3C, trackball = 0x0A.
  */
@@ -28,7 +28,14 @@
     trackball: trackball@a {
         compatible = "pimoroni,pim447";
         reg = <0x0a>;
-        int-gpios = <&pro_micro 9 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+        /*
+         * Sem pino INT: o INT no D9 não chega ao MCU de forma fiável, por isso
+         * o driver lê a bola sozinho (15 ms a mexer, 100 ms parada).
+         * Para voltar ao modo INT (gasta menos bateria), descomenta:
+         * int-gpios = <&pro_micro 9 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+         */
+        poll-interval-ms = <15>;
+        idle-poll-interval-ms = <100>;
 
         /* clique da bola: alterna cursor <-> scroll (LED: azul = cursor, verde = scroll) */
         click-toggles-scroll;

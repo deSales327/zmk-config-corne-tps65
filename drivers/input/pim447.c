@@ -2,7 +2,8 @@
  * Pimoroni Trackball Breakout (PIM447) — driver de input para Zephyr/ZMK
  *
  * - Lê as contagens esquerda/direita/cima/baixo e o clique por I2C (0x0A).
- * - Pino INT (ativo em LOW) opcional; sem ele, lê periodicamente.
+ * - Pino INT (ativo em LOW) opcional; sem ele, lê periodicamente (polling
+ *   adaptativo: rápido enquanto a bola mexe, lento quando está parada).
  * - Modo cursor (INPUT_REL_X/Y) ou scroll (INPUT_REL_WHEEL/HWHEEL).
  * - Com `click-toggles-scroll`, o clique da bola alterna cursor <-> scroll
  *   (e o LED pisca: azul = cursor, verde = scroll). Sem essa opção, o clique
@@ -44,7 +45,8 @@ LOG_MODULE_REGISTER(pim447, CONFIG_INPUT_LOG_LEVEL);
 struct pim447_config {
     struct i2c_dt_spec i2c;
     struct gpio_dt_spec int_gpio;
-    uint16_t poll_ms;
+    uint16_t poll_ms;      /* período de leitura com a bola a mexer */
+    uint16_t idle_poll_ms; /* período de leitura com a bola parada */
     uint8_t cursor_mult;
     uint8_t accel;
     uint8_t scroll_div;
@@ -66,6 +68,7 @@ struct pim447_data {
     uint8_t rgb[3]; /* cor pedida pelo RGB do teclado (pim447_set_rgb) */
     int scroll_acc_x, scroll_acc_y;
     int64_t last_move_ms;
+    int64_t last_activity_ms; /* último movimento/clique (para o polling adaptativo) */
     int32_t rem_x, rem_y; /* restos (x1/16) para movimento suave */
 };
 
@@ -147,17 +150,19 @@ static void accelerate(const struct pim447_config *cfg, struct pim447_data *data
     data->rem_y = y16 - *dy * 16;
 }
 
-static void process(const struct device *dev) {
+/* Lê a bola e envia os eventos. Devolve true se houve movimento ou clique. */
+static bool process(const struct device *dev) {
     const struct pim447_config *cfg = dev->config;
     struct pim447_data *data = dev->data;
     uint8_t b[5];
+    bool activity = false;
 
     if (data->sleeping) {
-        return;
+        return false;
     }
     if (reg_read(dev, REG_LEFT, b, sizeof(b)) != 0) {
         LOG_DBG("read failed");
-        return;
+        return false;
     }
 
     int32_t dx = (int32_t)b[1] - (int32_t)b[0]; /* direita - esquerda */
@@ -166,6 +171,7 @@ static void process(const struct device *dev) {
 
     if (pressed != data->pressed) {
         data->pressed = pressed;
+        activity = true;
         if (cfg->click_toggles_scroll) {
             if (pressed) {
                 data->scroll_mode = !data->scroll_mode;
@@ -179,8 +185,9 @@ static void process(const struct device *dev) {
     }
 
     if (dx == 0 && dy == 0) {
-        return;
+        return activity;
     }
+    activity = true;
 
     if (data->scroll_mode) {
         data->scroll_acc_x += dx;
@@ -201,6 +208,7 @@ static void process(const struct device *dev) {
             input_report_rel(dev, INPUT_REL_Y, dy, true, K_FOREVER);
         }
     }
+    return activity;
 }
 
 static void work_handler(struct k_work *work) {
@@ -208,11 +216,17 @@ static void work_handler(struct k_work *work) {
     const struct device *dev = data->dev;
     const struct pim447_config *cfg = dev->config;
 
-    process(dev);
-
-    /* se o INT continua ativo (perdemos um flanco), volta a ler */
-    if (cfg->int_gpio.port != NULL && !data->sleeping && gpio_pin_get_dt(&cfg->int_gpio) > 0) {
-        k_work_submit(&data->work);
+    /*
+     * Se o INT continua ativo depois de ler, volta a ler — mas no máximo
+     * algumas vezes seguidas. Um INT preso em LOW (mau contacto) não pode
+     * monopolizar a fila de trabalho do sistema (teclas e ecrã correm lá).
+     */
+    for (int i = 0; i < 8; i++) {
+        process(dev);
+        if (cfg->int_gpio.port == NULL || data->sleeping ||
+            gpio_pin_get_dt(&cfg->int_gpio) <= 0) {
+            break;
+        }
     }
 }
 
@@ -229,10 +243,18 @@ static void poll_handler(struct k_work *work) {
         k_work_reschedule(&data->poll_work, K_MSEC(500));
         return;
     }
+    uint16_t next = cfg->idle_poll_ms;
     if (!data->sleeping) {
-        process(data->dev);
+        int64_t now = k_uptime_get();
+        if (process(data->dev)) {
+            data->last_activity_ms = now;
+        }
+        /* rápido durante 1 s depois do último movimento, depois abranda */
+        if (now - data->last_activity_ms < 1000) {
+            next = cfg->poll_ms;
+        }
     }
-    k_work_reschedule(&data->poll_work, K_MSEC(cfg->poll_ms));
+    k_work_reschedule(&data->poll_work, K_MSEC(next));
 }
 
 static void int_cb(const struct device *port, struct gpio_callback *cb, uint32_t pins) {
@@ -331,6 +353,11 @@ static int pim447_init(const struct device *dev) {
     set_led(dev, 0, 0, 0, 0);
     reg_write(dev, REG_CTRL, 0); /* acordado */
 
+    /* descarta o movimento acumulado desde que a bola ligou (evita um salto
+     * enorme do cursor na primeira leitura) */
+    uint8_t junk[5];
+    reg_read(dev, REG_LEFT, junk, sizeof(junk));
+
     if (pim447_first_dev == NULL) {
         pim447_first_dev = dev;
     }
@@ -371,6 +398,7 @@ static int pim447_init(const struct device *dev) {
         .i2c = I2C_DT_SPEC_INST_GET(n),                                                            \
         .int_gpio = GPIO_DT_SPEC_INST_GET_OR(n, int_gpios, {0}),                                   \
         .poll_ms = DT_INST_PROP(n, poll_interval_ms),                                              \
+        .idle_poll_ms = DT_INST_PROP(n, idle_poll_interval_ms),                                    \
         .cursor_mult = DT_INST_PROP(n, cursor_multiplier),                                         \
         .accel = DT_INST_PROP(n, acceleration),                                                    \
         .scroll_div = MAX(1, DT_INST_PROP(n, scroll_divisor)),                                     \
