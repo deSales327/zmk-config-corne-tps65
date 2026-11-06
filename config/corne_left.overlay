@@ -45,6 +45,15 @@
         noise-threshold = <2>;
 
         /*
+         * Suavização (cursor "com poucos fps"): cada contagem da bola vale
+         * vários píxeis; em vez de saltar de uma vez, o cursor desliza até lá
+         * em passos de 8 ms. 2 = suave com pouco atraso; 3 = mais suave, mais
+         * atraso; 0 = desligado.
+         */
+        smoothing = <2>;
+        smooth-interval-ms = <8>;
+
+        /*
          * Orientação da bola (cursor e scroll): 0, 90, 180 ou 270 graus no
          * sentido horário. 90 = corrige "direita sobe / esquerda desce".
          */

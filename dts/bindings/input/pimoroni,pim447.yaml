@@ -25,6 +25,14 @@ properties:
     type: int
     default: 1
     description: Ball counts needed (within 80 ms) to start moving from rest. 1 = off; 2-3 filter stray counts (jitter).
+  smoothing:
+    type: int
+    default: 0
+    description: Cursor smoothing. 0/1 = off; N = each step sends 1/N of the pending movement (higher = smoother, more lag).
+  smooth-interval-ms:
+    type: int
+    default: 8
+    description: Time between smoothing steps.
   cursor-multiplier:
     type: int
     default: 6

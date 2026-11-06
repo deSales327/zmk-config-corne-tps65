@@ -54,6 +54,8 @@ struct pim447_config {
     bool click_toggles_scroll;
     bool led_feedback;
     uint8_t noise_threshold; /* contagens mínimas para arrancar a partir de repouso */
+    uint8_t smoothing;       /* 0/1 = desligado; N = envia 1/N do movimento pendente por passo */
+    uint8_t smooth_ms;       /* intervalo entre passos da suavização */
     uint8_t led_brightness;
 };
 
@@ -63,6 +65,8 @@ struct pim447_data {
     struct k_work work;
     struct k_work_delayable poll_work;
     struct k_work_delayable led_off_work;
+    struct k_work_delayable out_work; /* suavização: distribui o movimento no tempo */
+    int32_t out_x, out_y;             /* píxeis ainda por enviar */
     bool scroll_mode;
     bool pressed;
     bool sleeping;
@@ -186,6 +190,50 @@ static void rotate(uint16_t deg, int32_t *dx, int32_t *dy) {
     }
 }
 
+/*
+ * Suavização do cursor. A bola tem pouca resolução: a rodar devagar chega
+ * 1 contagem de vez em quando e o cursor saltava vários píxeis de uma vez
+ * (parecia ter poucos fps). Em vez disso, o movimento fica pendente e é
+ * enviado em passos mais pequenos a cada `smooth_ms` (1/N do que falta).
+ */
+static int32_t take_step(int32_t *pending, uint8_t div) {
+    int32_t v = *pending;
+    int32_t e;
+    if (v == 0) {
+        return 0;
+    }
+    if (div <= 1) {
+        e = v;
+    } else if (v > 0) {
+        e = (v + div - 1) / div; /* arredonda para cima: nunca fica parado */
+    } else {
+        e = -((-v + div - 1) / div);
+    }
+    *pending -= e;
+    return e;
+}
+
+static void out_handler(struct k_work *work) {
+    struct k_work_delayable *dw = k_work_delayable_from_work(work);
+    struct pim447_data *data = CONTAINER_OF(dw, struct pim447_data, out_work);
+    const struct device *dev = data->dev;
+    const struct pim447_config *cfg = dev->config;
+
+    if (data->sleeping) {
+        data->out_x = data->out_y = 0;
+        return;
+    }
+    int32_t x = take_step(&data->out_x, cfg->smoothing);
+    int32_t y = take_step(&data->out_y, cfg->smoothing);
+    if (x != 0 || y != 0) {
+        input_report_rel(dev, INPUT_REL_X, x, false, K_FOREVER);
+        input_report_rel(dev, INPUT_REL_Y, y, true, K_FOREVER);
+    }
+    if (data->out_x != 0 || data->out_y != 0) {
+        k_work_reschedule(&data->out_work, K_MSEC(cfg->smooth_ms));
+    }
+}
+
 /* Lê a bola e envia os eventos. Devolve true se houve movimento ou clique. */
 static bool process(const struct device *dev) {
     const struct pim447_config *cfg = dev->config;
@@ -262,7 +310,12 @@ static bool process(const struct device *dev) {
         }
     } else {
         accelerate(cfg, data, &dx, &dy);
-        if (dx != 0 || dy != 0) {
+        if (cfg->smoothing > 1) {
+            data->out_x += dx;
+            data->out_y += dy;
+            /* envia já o primeiro passo (sem atraso), se não houver um agendado */
+            k_work_schedule(&data->out_work, K_NO_WAIT);
+        } else if (dx != 0 || dy != 0) {
             input_report_rel(dev, INPUT_REL_X, dx, false, K_FOREVER);
             input_report_rel(dev, INPUT_REL_Y, dy, true, K_FOREVER);
         }
@@ -385,6 +438,7 @@ static int pim447_init(const struct device *dev) {
     k_work_init(&data->work, work_handler);
     k_work_init_delayable(&data->poll_work, poll_handler);
     k_work_init_delayable(&data->led_off_work, led_off_handler);
+    k_work_init_delayable(&data->out_work, out_handler);
 
     if (!i2c_is_ready_dt(&cfg->i2c)) {
         LOG_ERR("I2C bus not ready");
@@ -466,6 +520,8 @@ static int pim447_init(const struct device *dev) {
         .led_feedback = DT_INST_PROP(n, led_feedback),                                             \
         .led_brightness = DT_INST_PROP(n, led_brightness),                                         \
         .noise_threshold = DT_INST_PROP(n, noise_threshold),                                       \
+        .smoothing = DT_INST_PROP(n, smoothing),                                                   \
+        .smooth_ms = MAX(1, DT_INST_PROP(n, smooth_interval_ms)),                                  \
     };                                                                                             \
     DEVICE_DT_INST_DEFINE(n, pim447_init, NULL, &pim447_data_##n, &pim447_config_##n,              \
                           POST_KERNEL, CONFIG_INPUT_PIM447_INIT_PRIORITY, NULL);

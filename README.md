@@ -86,7 +86,8 @@ interrupção. O RDY tem ainda pull-down no `corne_right.overlay`.
   e o auto-off das teclas RGB da layer Lower.
 - Afinações em `config/corne_left.overlay`: `cursor-multiplier`, `acceleration`,
   `scroll-divisor`, `rotation` (0/90/180/270, orientação da bola, cursor e scroll) e
-  `noise-threshold` (anti-jitter: contagens mínimas para arrancar de repouso; 1 = desligado).
+  `noise-threshold` (anti-jitter: contagens mínimas para arrancar de repouso; 1 = desligado) e
+  `smoothing` / `smooth-interval-ms` (o cursor desliza em vez de saltar; 0 = desligado).
 - Sem `click-toggles-scroll`, o clique passa a ser o botão esquerdo do rato.
 - O driver lê a bola por **polling**: a cada 10 ms enquanto mexe e a cada 100 ms parada
   (`poll-interval-ms` / `idle-poll-interval-ms`). O INT no D9 não chegava ao MCU de forma
