@@ -47,6 +47,7 @@ struct pim447_config {
     struct gpio_dt_spec int_gpio;
     uint16_t poll_ms;      /* período de leitura com a bola a mexer */
     uint16_t idle_poll_ms; /* período de leitura com a bola parada */
+    uint16_t rotation;     /* rotação dos eixos (0/90/180/270, sentido horário) */
     uint8_t cursor_mult;
     uint8_t accel;
     uint8_t scroll_div;
@@ -150,6 +151,27 @@ static void accelerate(const struct pim447_config *cfg, struct pim447_data *data
     data->rem_y = y16 - *dy * 16;
 }
 
+/* Roda os eixos da bola conforme a montagem (vale para cursor e scroll) */
+static void rotate(uint16_t deg, int32_t *dx, int32_t *dy) {
+    int32_t x = *dx, y = *dy;
+    switch (deg) {
+    case 90:
+        *dx = -y;
+        *dy = x;
+        break;
+    case 180:
+        *dx = -x;
+        *dy = -y;
+        break;
+    case 270:
+        *dx = y;
+        *dy = -x;
+        break;
+    default:
+        break;
+    }
+}
+
 /* Lê a bola e envia os eventos. Devolve true se houve movimento ou clique. */
 static bool process(const struct device *dev) {
     const struct pim447_config *cfg = dev->config;
@@ -167,6 +189,7 @@ static bool process(const struct device *dev) {
 
     int32_t dx = (int32_t)b[1] - (int32_t)b[0]; /* direita - esquerda */
     int32_t dy = (int32_t)b[3] - (int32_t)b[2]; /* baixo - cima */
+    rotate(cfg->rotation, &dx, &dy);
     bool pressed = (b[4] & MSK_SWITCH_STATE) != 0;
 
     if (pressed != data->pressed) {
@@ -399,6 +422,7 @@ static int pim447_init(const struct device *dev) {
         .int_gpio = GPIO_DT_SPEC_INST_GET_OR(n, int_gpios, {0}),                                   \
         .poll_ms = DT_INST_PROP(n, poll_interval_ms),                                              \
         .idle_poll_ms = DT_INST_PROP(n, idle_poll_interval_ms),                                    \
+        .rotation = DT_INST_PROP(n, rotation),                                                     \
         .cursor_mult = DT_INST_PROP(n, cursor_multiplier),                                         \
         .accel = DT_INST_PROP(n, acceleration),                                                    \
         .scroll_div = MAX(1, DT_INST_PROP(n, scroll_divisor)),                                     \

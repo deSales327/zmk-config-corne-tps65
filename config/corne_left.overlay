@@ -37,6 +37,12 @@
         poll-interval-ms = <15>;
         idle-poll-interval-ms = <100>;
 
+        /*
+         * Orientação da bola (cursor e scroll): 0, 90, 180 ou 270 graus no
+         * sentido horário. 90 = corrige "direita sobe / esquerda desce".
+         */
+        rotation = <90>;
+
         /* clique da bola: alterna cursor <-> scroll (LED: azul = cursor, verde = scroll) */
         click-toggles-scroll;
         led-feedback;

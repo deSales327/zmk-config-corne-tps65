@@ -16,6 +16,11 @@ properties:
     type: int
     default: 100
     description: Poll period while the ball is still (polling mode only; saves battery).
+  rotation:
+    type: int
+    default: 0
+    enum: [0, 90, 180, 270]
+    description: Rotate the ball axes clockwise (degrees) to match how it is mounted. Applies to cursor and scroll.
   cursor-multiplier:
     type: int
     default: 6
